@@ -67,6 +67,8 @@ bool sensorLimClsd, sensorLimOpen;
 bool switchYellow;
 bool WifiConnect;
 unsigned long holding ;
+char rxChar= 0;         // RXcHAR holds the received command.
+
 //int state_rest;
 void loop_led();
 void loop_status();
@@ -99,6 +101,56 @@ const char* getStateName(enum arm_state state)
 const char* ssid     = "Lab. Plasmas Hipersonicos";
 const char* password = "";
 
+//=== function to print the command list:  ===========================
+void printHelp(void){
+  Serial.println("--- Command list: ---");
+  Serial.println("? -> Print this HELP");  
+  Serial.println("o -> OPEN Valve  \"open\"");
+  Serial.println("d -> CLOSE Valve \"close\"");
+  Serial.println("s -> Valve     \"status\"");  
+}
+
+void loop_serial(){
+  if (Serial.available() >0){          // Check receive buffer.
+    rxChar = Serial.read();            // Save character received. 
+    Serial.flush();                    // Clear receive buffer.
+  
+  switch (rxChar) {
+    
+    case 'o':
+    case 'O':
+        if (state != fully_open && state != error  ){
+          state = moving_out;                          // If received 'o' or 'O':
+          Serial.println(F("STOP->OUT"));        
+	      }
+        else 
+            Serial.println(getStateName(state));
+        break;
+    case 'c':
+    case 'C':                          // If received 'd' or 'D':
+        if (state != fully_closed && state != error  ){
+          state = moving_in;                          // If received 'o' or 'O':
+          Serial.println(F("OUT-> IN"));        
+	      }
+        else 
+            Serial.println(getStateName(state));
+        break;
+    case 's':
+    case 'S':  
+        Serial.println(getStateName(state));  
+        break;
+    case '?':                          // If received a ?:
+        printHelp();                   // print the command list.
+        break;
+        
+    default:                           
+      Serial.print("'");
+      Serial.print((char)rxChar);
+      Serial.println("' is not a command!");
+    }
+  }
+}
+
 //const char* host = "data.sparkfun.com";
 
 void printWifiStatus() {
@@ -114,6 +166,7 @@ void printWifiStatus() {
   // print the received signal strength:
   long rssi = WiFi.RSSI();
   Serial.print("signal strength (RSSI):");
+
   Serial.print(rssi);
   Serial.println(" dBm");
 }
@@ -327,6 +380,7 @@ void loop_sm() {
 void loop() {
   loop_sm();
   loop_led();
+  loop_serial();
   loop_status();
 }
 
