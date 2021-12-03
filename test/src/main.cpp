@@ -53,32 +53,38 @@ int handle_rest_client() {
   // Serial.print("~");
 }
 
+//#define LED_OUT 2 // PD2  // e.g. blue LED
+//#define BLUE_SWITCH PIN_WIRE_SDA
+//#define BLUE_SWITCH 3 // PD3
+//#define LED_IN 4   // e.g. Red LED
+//#define RED_SWITCH 5 // PD5
+//#define LED_IN 13   // e.g. Yelow LED
+#define LED_YELLOW 12 //13   // e.g. Yelow LED
+#define SWITCH_YELLOW 13// 2 // PD5
+//#define LED_IN 14   // e.g. Yelow LED
 
-
-#define LED_YELLOW 12   // e.g. Yelow LED
-#define SWITCH_YELLOW 13 // PD5
-
-#define LIMIT_CLSD  5   // SCL   Limit CLOSED Yellow cable 
-#define LIMIT_OPN   4  // SDA    Limit OPEN Blue cable 
+#define LIMIT_IN  4   // SDA
+#define LIMIT_OUT 5 // SCL
 
 #define RELAY_OPEN 14
+//#define LED_RED 12  // temp
 
-bool sensorLimClsd, sensorLimOpen;
-bool switchYellow;
-bool WifiConnect;
+//#define RELAY_OUT SCL // PB0
+
+bool sensorLimIn, sensorLimOpen;
 unsigned long holding ;
-//int state_rest;
+int state_rest;
 void loop_led();
-void loop_status();
+void loop_rest();
+int ledControl(String command);
 
 enum arm_state
 {                                                                                                                                                                                                                             
 // stopped,
   moving_in,
   moving_out,
-  fully_closed,
-  fully_open,
-  error
+  limit_in,
+  limit_open
 } state;
 
 //#define LED_PIN 13
@@ -90,9 +96,8 @@ const char* getStateName(enum arm_state state)
    //   case stopped: return    "Stopped";
       case moving_in: return  "Moving In";
       case moving_out: return "Moving Out";
-      case fully_closed: return   "Fully Closed";
-      case fully_open: return  "Fully Open";
-      case error: return  "error";
+      case limit_in: return   "Limit In";
+      case limit_open: return  "Limit Open";
       default: return "";
    }
 }
@@ -119,31 +124,34 @@ void printWifiStatus() {
 }
 
 void setup() {
-  int i;
+
   static const char * name_esp = "esp8266"; 
 
-  pinMode(LED_YELLOW, OUTPUT);  
+  pinMode(LED_YELLOW, OUTPUT);  //yellow
   pinMode(SWITCH_YELLOW,  INPUT_PULLUP);
+  //pinMode(LED_BUILTIN, OUTPUT);
 
-  pinMode(LIMIT_CLSD, INPUT_PULLUP);
-  pinMode(LIMIT_OPN, INPUT_PULLUP);
+  pinMode(LIMIT_IN, INPUT_PULLUP);
+  pinMode(LIMIT_OUT, INPUT_PULLUP);
   pinMode(RELAY_OPEN, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT); // BLUE LED
- 
+  //pinMode(LED_BUILTIN, OUTPUT); // RED LED
+
+  // 
   //pinMode(PIN_GROVE_POWER, OUTPUT);
   //digitalWrite(PIN_GROVE_POWER, 1);
   // ou must pull up GPIO 15 in your Arduino sketch to power on the Grove system:
+
   pinMode(PIN_GROVE_POWER,  INPUT_PULLUP);
 
   // Start serial port
   Serial.begin(115200);
   // Create UI
   rest.title(F("Relay Control"));
-  rest.button(LED_BUILTIN); // BLUE LED
-  //rest.variable("state_rest", &state_rest);
-  //rest.label("state_rest");
-  rest.variable("state", &state);
-  rest.label("state");
+  rest.button(LED_BUILTIN); // 
+  //rest.button(12); // 
+  rest.variable("state_rest", &state_rest);
+  rest.label("state_rest");
+  //rest.variable("temperature",&state_rest);
   // Function to be exposed
   //rest.function("led", ledControl);
 
@@ -156,87 +164,48 @@ void setup() {
      network-issues with your other WiFi-devices on your WiFi-network. */
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  WifiConnect = false;
-  for (i=0; i< 20; i++){
-  //while (WiFi.status() != WL_CONNECTED) {
-    if (WiFi.status() == WL_CONNECTED){
-      WifiConnect = true;
-      //Serial.println("");
-      break;  
-    }
+  
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  if (WifiConnect == 0 ){
-    //Serial.println("");
-    Serial.println(F("WiFi Not connected"));
-    for (i=0; i< 6; i++){
-        digitalWrite(LED_BUILTIN, (i & 0x01) );
-        delay(200);
-    }
-  }
-  else {
-    Serial.print(F("WiFi connected "));
-    Serial.print("IP address: ");
-    for (i=0; i< 10; i++){
-        digitalWrite(LED_BUILTIN, (i & 0x01) );
-        delay(200);
-    }
-    Serial.println(WiFi.localIP());
-    // Start the server
-    server.begin();
-    Serial.println(F("Server started"));
 
-    // Print out the status
-    printWifiStatus();
-  }
-  sensorLimClsd =  !digitalRead(LIMIT_CLSD);
-  sensorLimOpen = !digitalRead(LIMIT_OPN); //false; //!digitalRead(LIMIT_OPN);
+  Serial.println("");
+  Serial.println(F("WiFi connected"));  
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  // Start the server
+  server.begin();
+  Serial.println(F("Server started"));
 
-  if (sensorLimClsd && sensorLimOpen)
-    state = error;
-  else if (sensorLimOpen)
-    state = fully_open;
-  else
-    state = moving_in;
+  // Print the IP address
+  // Serial.println(WiFi.localIP());
+  // Print out the status
+  printWifiStatus();
+  //digitalWrite(LED_BUILTIN, HIGH);
 }
 void loop_led() {
 
   static unsigned long nextTime = 0;
-  //const long slow= 500;
-  const long fast = 200;
-  static int led_count = 0;
-  bool led_slow;
-  bool led_normal;
-  bool led_fast;
+  const long interval = 200;
+  static bool led_state = LOW;
 
   unsigned long now = millis();
 
-  led_slow = ((led_count & 0x4)==0x4);
-  led_normal = ((led_count & 0x2)==0x2);
-  //led_normal = ((led_count & 0x2)==0x2);
-  led_fast = ((led_count & 0x3)==0x3);
-  
   if ( now > nextTime ) {  
-    nextTime = now + fast; 
-    led_count++;  // +=  1; //!led_state;   
-
+    nextTime = now + interval; 
+    led_state = !led_state;   
     switch (state)
     {
-      case moving_in:
-          digitalWrite(LED_YELLOW, led_slow);
-      break;    
       case moving_out:
-          digitalWrite(LED_YELLOW, led_normal);
+          digitalWrite(LED_YELLOW, led_state);
       break;    
-      case fully_closed:  
-          digitalWrite(LED_YELLOW, LOW);
-        break;          
-      case fully_open:  
+      case moving_in:
+      case limit_in:  
           digitalWrite(LED_YELLOW, HIGH);
         break;          
-      case error:  
-          digitalWrite(LED_YELLOW, led_fast);
+      case limit_open:  
+          digitalWrite(LED_YELLOW, LOW);
       default:;
     }
   }
@@ -245,80 +214,53 @@ void loop_led() {
 void loop_sm() {
   static const long debounce = 2000; 
   static const long debounce_short = 500; 
-  sensorLimClsd =  !digitalRead(LIMIT_CLSD);
-  sensorLimOpen = !digitalRead(LIMIT_OPN); //false; //!digitalRead(LIMIT_OPN);
-  switchYellow =  !digitalRead(SWITCH_YELLOW);
-
+  sensorLimIn =  false; // ! digitalRead(LIMIT_IN);
+  sensorLimOpen = !digitalRead(LED_BUILTIN); //false; //!digitalRead(LIMIT_OUT);
   
   unsigned long now = millis();
 
   switch (state)
   {
     case moving_in:
-      digitalWrite(RELAY_OPEN, LOW);
-      if (sensorLimClsd && sensorLimOpen)
-        state = error;
-      else if (sensorLimClsd){
-        Serial.println(F("moving_in->fully_closed"));
-        state = fully_closed;
+       if (sensorLimIn){
+        Serial.println(F("Moving->limit_in"));
+        state = limit_in;
       }
-    break;
-
-    case fully_closed:
+    case limit_in:
+    //case stopped:
       digitalWrite(RELAY_OPEN, LOW);
-      if (sensorLimClsd && sensorLimOpen)
-        state = error;
-      else  {
-            if ((now > holding) && (switchYellow)) {  //&& !sensorLimClsd ){
-              holding = now + debounce;
-              state = moving_out;
-              Serial.println(F("moving_in->moving_out"));
-            }
-
-      } 
+      if (now > holding) {
+        if (!digitalRead(SWITCH_YELLOW) ){ //&& !sensorLimIn ){
+            holding = now + debounce;
+            state = moving_out;
+            Serial.println(F("STOP->OUT"));
+        }
+      }
     break;
 
     case moving_out:
-      if (sensorLimClsd && sensorLimOpen)
-        state = error;
-      else {
-        digitalWrite(RELAY_OPEN, HIGH);
-        if (sensorLimOpen){
-          holding = now + debounce;
-          Serial.println(F("moving_out->fully_open"));
-          state = fully_open;
+      digitalWrite(RELAY_OPEN, HIGH);
+      //digitalWrite(LED_OUT, HIGH);
+      if (sensorLimOpen){
+        holding = now + debounce;
+        Serial.println(F("Moving->limit_open"));
+        state = limit_open;
+      }
+      if (now > holding) {    
+        if (!digitalRead(SWITCH_YELLOW)) {
+          holding = now + debounce_short;
+          state = moving_in;
+          Serial.println(F("OUT->IN"));
         }
-        else if (now > holding) {    
-          if (switchYellow) {
-            holding = now + debounce_short;
-            state = moving_in;
-            Serial.println(F("moving_out->moving_in"));
-          }
-        } 
       }      
     break;   
 
-    case fully_open:
-      if (sensorLimClsd && sensorLimOpen)
-        state = error;
-      else {    
+    case limit_open:
         digitalWrite(RELAY_OPEN, HIGH);
-        if (switchYellow && (now > holding)) {
-          holding = now + debounce_short;
-          state = moving_in;
-        }
+      if (!digitalRead(SWITCH_YELLOW)) {
+        holding = now + debounce_short;
+        state = moving_in;
       }
-    break;
-
-    case error:
-      digitalWrite(RELAY_OPEN, LOW);
-      if (sensorLimClsd && !sensorLimOpen ) 
-        state = fully_closed;         
-      else if ( !sensorLimClsd && sensorLimOpen ) 
-        state = fully_open;      
-      else if ( !sensorLimClsd && !sensorLimOpen ) 
-        state = moving_in;      
-
     break;
   default:;
   }
@@ -327,36 +269,68 @@ void loop_sm() {
 void loop() {
   loop_sm();
   loop_led();
-  loop_status();
+  loop_rest();
 }
 
 
-void loop_status() {
+void loop_rest() {
+  //static bool led_state = LOW;
   static unsigned long nextTime = 0;
   static const unsigned long REFRESH_INTERVAL = 1000; // ms
+  //static const long debounce = 1000; 
+  //static const long debounce_short = 500;   unsigned long now = millis();
 
   unsigned long now = millis();
+  state_rest = state;
 
   if ( now > nextTime ) {  
     nextTime = now + REFRESH_INTERVAL; 
+    //state = (state != stopped)? stopped:  moving_in;
+
+    //if ( now > nextTime ) {  
+    //nextTime = now + interval; 
     Serial.print(getStateName(state));
-    Serial.print(", LIM CLSD ");
-    Serial.print(sensorLimClsd); 
+    Serial.print(", LIM IN ");
+    Serial.print(digitalRead(LIMIT_IN)); 
+    Serial.print(", "); 
     Serial.print(", LIM OPN ");
-    Serial.print(sensorLimOpen); 
+    Serial.print(digitalRead(LED_BUILTIN)); 
+    Serial.print(", "); 
     //Serial.print(digitalRead(led_state));  
     Serial.print(", SW: "); 
-    Serial.print(switchYellow);
+    Serial.print(digitalRead(SWITCH_YELLOW));
     Serial.print(", RLY: ");
     Serial.print(digitalRead(RELAY_OPEN)); 
     Serial.print(", ");
-    Serial.print(now - holding);
-    Serial.print(", Wifi: "); 
-    Serial.print(WifiConnect);
+    Serial.print(now- holding);
+    //Serial.print(digitalRead(led_state));  
+    //Serial.print(digitalRead(SWITCH_YELLOW));
+
+    //digitalWrite(LED_IN, state);  
+    //digitalWrite(LED_IN, led_state);  
+    //digitalWrite(LED_RED, state);  
+    //digitalWrite(LED_BUILTIN, led_state);  
+    //digitalWrite(RELAY_OPEN, state);  
+    //digitalWrite(SDA, led_state);  
+    //digitalWrite(SCL, led_state);  
+
+
     Serial.println(F("."));
+    //delay(500);
+    // put your main code here, to run repeatedly:
+
   }
-  if(WifiConnect)
-    handle_rest_client();
+  /*
+  // Handle REST calls
+  WiFiClient client = server.available();
+  if (!client) {
+    return;
+  }
+  while (!client.available()) {
+    delay(1);
+  }
+  */
+  handle_rest_client();
 }
 
 
@@ -365,8 +339,8 @@ int ledControl(String command) {
   Serial.println(command);
 
   // Get state from command
-  int statec = command.toInt();
-  Serial.println(F("ledControl"));
-  digitalWrite(LED_BUILTIN, statec);
+  int state = command.toInt();
+
+  digitalWrite(LED_BUILTIN, state);
   return 1;
 }
