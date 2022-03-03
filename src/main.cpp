@@ -163,6 +163,7 @@ void setup() {
 
     // Start serial port
     Serial.begin(115200);
+    /*
     // Create UI
     rest.title(F("Relay Control"));
     rest.button(LED_BUILTIN); // BLUE LED
@@ -177,10 +178,11 @@ void setup() {
     // Give name and ID to device
     rest.set_id(F("1"));
     rest.set_name(name_esp);// "esp8266");
-
+*/
     /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
        would try to act as both a client and an access-point and could cause
        network-issues with your other WiFi-devices on your WiFi-network. */
+    /*
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
     WifiConnect = false;
@@ -217,7 +219,7 @@ void setup() {
         // Print out the status
         printWifiStatus();
     }
-
+*/
     state = stopped;
 
     //sensorLimClsd =  !digitalRead(LIMIT_CLSD);

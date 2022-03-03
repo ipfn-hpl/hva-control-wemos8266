@@ -26,7 +26,7 @@ https://seeeddoc.github.io/Wio_Link/
 #define __loop_functions_h__
 #include <ESP8266WiFi.h>
 
-#define ADDRESS 3
+#define ADDRESS 4
 //extern int aGlobalVariable;
 //extern aREST_UI rest;
 
