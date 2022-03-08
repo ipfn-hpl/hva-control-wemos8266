@@ -24,11 +24,12 @@ https://seeeddoc.github.io/Wio_Link/
 
 #ifndef __loop_functions_h__
 #define __loop_functions_h__
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
+//#include <aREST.h>
+//#include <aREST_UI.h>
 
 #define ADDRESS 4
-//extern int aGlobalVariable;
-//extern aREST_UI rest;
 
 enum st_state
 {
@@ -44,10 +45,15 @@ extern bool sensorLimIn, sensorLimOut;
 extern bool switchIn, switchOut;
 extern unsigned long holding;
 extern char in_char;
+//extern bool WifiConnect;
+//extern WiFiServer server;
+//extern aREST_UI rest;
 
 const char* getStateName(enum st_state state);
 void loop_print(void);
 void printHelp(void);
-void printWifiStatus();
+//void printWifiStatus();
+void connect_wifi_rest();
+//int handle_rest_client();
 
 #endif

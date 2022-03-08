@@ -25,6 +25,11 @@ https://seeeddoc.github.io/Wio_Link/
 
 #include "loop_functions.h"
 
+const char* ssid     = "Lab. Plasmas Hipersonicos";
+const char* password = "";
+const char * name_esp = "esp8266";
+
+
 //=== function to print the command list:  ===========================
 void printHelp(void){
     Serial.println("--- Command list: ---");
@@ -33,7 +38,96 @@ void printHelp(void){
     Serial.println("d -> CLOSE Valve \"close\"");
     Serial.println("s -> Valve     \"status\"");
 }
+/*
+int handle_rest_client() {
+    // Handle REST calls
+    WiFiClient client = server.available();
+    if (!client) {
+        return 0;
+    }
+    while (!client.available()) {
+        delay(1);
+    }
+    rest.handle(client);
+    return 0;
+    // Serial.print("~");
+}
+void connect_wifi_rest(){
+    int i;
+    // Create UI
+    rest.title(F("Relay Control"));
+    rest.button(LED_BUILTIN); // BLUE LED
+    //rest.variable("state_rest", &state_rest);
+    //rest.label("state_rest");
+    rest.variable("state", &state);
+    char st_label[] = "state";
+    rest.label(st_label); //ISO C++ forbids converting a string constant to 'char*'
+    // Function to be exposed
+    //rest.function("led", ledControl);
 
+    // Give name and ID to device
+    rest.set_id(F("1"));
+    rest.set_name(name_esp);// "esp8266");
+*/
+    /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
+       would try to act as both a client and an access-point and could cause
+       network-issues with your other WiFi-devices on your WiFi-network. */
+
+/*WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    WifiConnect = false;
+    for (i=0; i< 20; i++){
+        //while (WiFi.status() != WL_CONNECTED) {
+        if (WiFi.status() == WL_CONNECTED){
+            WifiConnect = true;
+            //Serial.println("");
+            break;
+        }
+        delay(500);
+        Serial.print(".");
+    }
+    if (WifiConnect == 0 ){
+        //Serial.println("");
+        Serial.println(F("WiFi Not connected"));
+        for (i=0; i< 6; i++){
+            digitalWrite(LED_BUILTIN, (i & 0x01) );
+            delay(200);
+        }
+    }
+    else {
+        Serial.print(F("WiFi connected "));
+        Serial.print("IP address: ");
+        for (i=0; i< 10; i++){
+            digitalWrite(LED_BUILTIN, (i & 0x01) );
+            delay(200);
+        }
+        Serial.println(WiFi.localIP());
+        // Start the server
+        server.begin();
+        Serial.println(F("Server started"));
+
+        // Print out the status
+        printWifiStatus();
+    }
+}
+void printWifiStatus() {
+    // print the SSID of the network you're attached to:
+    Serial.print("SSID: ");
+    Serial.println(WiFi.SSID());
+
+    // print your WiFi shield's IP address:
+    IPAddress ip = WiFi.localIP();
+    Serial.print("IP Address: ");
+    Serial.println(ip);
+
+    // print the received signal strength:
+    long rssi = WiFi.RSSI();
+    Serial.print("signal strength (RSSI):");
+
+    Serial.print(rssi);
+    Serial.println(" dBm");
+}
+*/
 const char* getStateName(enum st_state state)
 {
     switch (state)
@@ -90,22 +184,5 @@ void loop_print(void) {
         }
     }
     // printf("%s", getDayName(TheDay));
-}
-void printWifiStatus() {
-    // print the SSID of the network you're attached to:
-    Serial.print("SSID: ");
-    Serial.println(WiFi.SSID());
-
-    // print your WiFi shield's IP address:
-    IPAddress ip = WiFi.localIP();
-    Serial.print("IP Address: ");
-    Serial.println(ip);
-
-    // print the received signal strength:
-    long rssi = WiFi.RSSI();
-    Serial.print("signal strength (RSSI):");
-
-    Serial.print(rssi);
-    Serial.println(" dBm");
 }
 
