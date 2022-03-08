@@ -113,165 +113,168 @@ void setup() {
     //state = moving_in;
 }
 
-    // YELLOW blink loop
+// YELLOW blink loop
 void loop_led() {
 
-        static unsigned long nextTime = 0;
-        //const long slow= 500;
-        const long fast = 200;
-        static int led_count = 0;
-        bool led_slow;
-        bool led_normal;
-        bool led_fast;
+    static unsigned long nextTime = 0;
+    //const long slow= 500;
+    const long fast = 200;
+    static int led_count = 0;
+    bool led_slow;
+    bool led_normal;
+    bool led_fast;
 
-        unsigned long now = millis();
+    unsigned long now = millis();
 
-        led_slow = ((led_count & 0x4)==0x4);
-        led_normal = ((led_count & 0x2)==0x2);
-        //led_normal = ((led_count & 0x2)==0x2);
-        led_fast = ((led_count & 0x3)==0x3);
+    led_slow = ((led_count & 0x4)==0x4);
+    led_normal = ((led_count & 0x2)==0x2);
+    //led_normal = ((led_count & 0x2)==0x2);
+    led_fast = ((led_count & 0x3)==0x3);
 
-        if ( now > nextTime ) {
-            nextTime = now + fast;
-            led_count++;  // +=  1; //!led_state;
+    if ( now > nextTime ) {
+        nextTime = now + fast;
+        led_count++;  // +=  1; //!led_state;
 
-            switch (state)
-            {
-                case moving_in:
-                    digitalWrite(LED_YELLOW, led_slow);
-                    break;
-                case moving_out:
-                    digitalWrite(LED_YELLOW, led_normal);
-                    break;
-                case fully_closed:
-                    digitalWrite(LED_YELLOW, LOW);
-                    break;
-                case fully_open:
-                    digitalWrite(LED_YELLOW, HIGH);
-                    break;
-                case error:
-                    digitalWrite(LED_YELLOW, led_fast);
-                default:;
-            }
+        switch (state)
+        {
+            case moving_in:
+                digitalWrite(LED_YELLOW, led_slow);
+                break;
+            case moving_out:
+                digitalWrite(LED_YELLOW, led_normal);
+                break;
+            case fully_closed:
+                digitalWrite(LED_YELLOW, LOW);
+                break;
+            case fully_open:
+                digitalWrite(LED_YELLOW, HIGH);
+                break;
+            case error:
+                digitalWrite(LED_YELLOW, led_fast);
+            default:;
         }
+    }
 }
 
 void loop_sm() {    //fast Loop
 
-        const long debounce = 1000; // 0.2 s
-        const long debounce2 = 500; // 0.2 s
-        //const long in_extend = 1000;
+    int iByte; // for incoming serial data
+    const long debounce = 1000; // 0.2 s
+    const long debounce2 = 500; // 0.2 s
+    //const long in_extend = 1000;
 
-        //in_char = 'x';
-        /* if ((in_char == 'x') ){
-           while (Serial.available() > 0) {
+    while (Serial.available() > 0) {
         // read incoming bytes, store last:
-        in_char = Serial.read();
-        }
-        }
-        */
-        if (Serial.available()) {
-            in_char = Serial.read();
-        }
+        iByte = Serial.read();
+//        if (iByte == 'i' || iByte == 'I')
+//            in_char = 'i';
+//        else
+        if (iByte == 'o' || iByte == 'O')
+            in_char = 'o';
+        //else if (iByte == 's' || iByte == 'S')
+        //    in_char = 's';
+       // else
+       //     in_char = 'x';
+    }
 
-        sensorLimIn = !digitalRead(LIMIT_IN);
-        sensorLimOut = !digitalRead(LIMIT_OUT);
-        //switchIn = !digitalRead(RED_SWITCH) || (in_char=='i') || (in_char=='I'); // red
-        //switchOut = !digitalRead(BLUE_SWITCH) || (in_char=='o') || (in_char=='O');  // blue
-        switchOut = !digitalRead(SWITCH_OUT) || (in_char=='o') || (in_char=='O');  // blue
+    sensorLimIn = !digitalRead(LIMIT_IN);
+    sensorLimOut = !digitalRead(LIMIT_OUT);
+    //switchIn = !digitalRead(RED_SWITCH) || (in_char=='i') || (in_char=='I'); // red
+    //switchOut = !digitalRead(BLUE_SWITCH) || (in_char=='o') || (in_char=='O');  // blue
+    switchOut = !digitalRead(SWITCH_OUT) || (in_char=='o') || (in_char=='O');  // blue
 
-        unsigned long now = millis();
+    unsigned long now = millis();
 
-        switch (state)
-        {
-            case stopped:
+    switch (state)
+    {
+        case stopped:
+            digitalWrite(RELAY_OUT, RELAY_OFF);
+            if (sensorLimIn && sensorLimOut )
+                state = error;
+            else if (sensorLimIn && !sensorLimOut )
+                state = fully_closed;
+            else if (!sensorLimIn && sensorLimOut )
+                state = fully_open;
+            else if (now > holding) {
+                if (switchOut && !sensorLimOut){
+                    holding = now + debounce;
+                    in_char = 'x';
+                    state = moving_out;
+                }
+            }
+            break;
+        case moving_in:
+            if (sensorLimIn && sensorLimOut )
+                state = error;
+            else {
                 digitalWrite(RELAY_OUT, RELAY_OFF);
-                if (sensorLimIn && sensorLimOut )
-                    state = error;
-                else if (sensorLimIn && !sensorLimOut )
+                if (sensorLimIn){
                     state = fully_closed;
-                else if (!sensorLimIn && sensorLimOut )
+                }
+            }
+            break;
+        case moving_out:
+            if (sensorLimIn && sensorLimOut )
+                state = error;
+            else {
+                digitalWrite(RELAY_OUT, RELAY_ON);
+                if (sensorLimOut){
+                    //Serial.println(F("Moving->fully_open"));
                     state = fully_open;
-                else if (now > holding) {
-                    if (switchOut && !sensorLimOut){
-                        holding = now + debounce;
-                        in_char = 'x';
-                        state = moving_out;
-                    }
                 }
-                break;
-            case moving_in:
-                if (sensorLimIn && sensorLimOut )
-                    state = error;
-                else {
-                    digitalWrite(RELAY_OUT, RELAY_OFF);
-                    if (sensorLimIn){
-                        state = fully_closed;
-                    }
-                }
-                break;
-            case moving_out:
-                if (sensorLimIn && sensorLimOut )
-                    state = error;
-                else {
-                    digitalWrite(RELAY_OUT, RELAY_ON);
-                    if (sensorLimOut){
-                        //Serial.println(F("Moving->fully_open"));
-                        state = fully_open;
-                    }
 
-                    if (switchOut && (now > holding) ){
-                        holding = now + debounce2;
-                        state = stopped;
-                        in_char = 'x';
-                        //Serial.println(F("OUT->STOP"));
-                    }
-                }
-                break;
-            case fully_closed:
-                if (sensorLimIn && sensorLimOut )
-                    state = error;
-                else {
-                    digitalWrite(RELAY_OUT, RELAY_OFF);
-                    if (switchOut && (now > holding) ){
-                        holding = now + debounce2;
-                        state = moving_out;
-                        in_char = 'x';
-                    }
-                }
-                break;
-            case fully_open:
-                if (sensorLimIn && sensorLimOut )
-                    state = error;
-                else {
-                    digitalWrite(RELAY_OUT, RELAY_ON);
-                    if (switchOut && (now > holding) ){
-                        holding = now + debounce2;
-                        state = moving_in;
-                        in_char = 'x';
-                    }
-                }
-                break;
-            case error:
-                digitalWrite(RELAY_OUT, RELAY_OFF);
-                if (sensorLimIn && !sensorLimOut )
-                    state = fully_closed;
-                else if ( !sensorLimIn && sensorLimOut )
-                    state = fully_open;
-                else if ( !sensorLimIn && !sensorLimOut )
+                if (switchOut && (now > holding) ){
+                    holding = now + debounce2;
                     state = stopped;
-                break;
-            default:;
-        }
+                    in_char = 'x';
+                    //Serial.println(F("OUT->STOP"));
+                }
+            }
+            break;
+        case fully_closed:
+            if (sensorLimIn && sensorLimOut )
+                state = error;
+            else {
+                digitalWrite(RELAY_OUT, RELAY_OFF);
+                if (switchOut && (now > holding) ){
+                    holding = now + debounce2;
+                    state = moving_out;
+                    in_char = 'x';
+                }
+            }
+            break;
+        case fully_open:
+            if (sensorLimIn && sensorLimOut )
+                state = error;
+            else {
+                digitalWrite(RELAY_OUT, RELAY_ON);
+                if (switchOut && (now > holding) ){
+                    holding = now + debounce2;
+                    state = moving_in;
+                    in_char = 'x';
+                }
+            }
+            break;
+        case error:
+            digitalWrite(RELAY_OUT, RELAY_OFF);
+            if (sensorLimIn && !sensorLimOut )
+                state = fully_closed;
+            else if ( !sensorLimIn && sensorLimOut )
+                state = fully_open;
+            else if ( !sensorLimIn && !sensorLimOut )
+                state = stopped;
+            break;
+        default:;
+    }
 
-    }
-    void loop() {
-        loop_sm();
-        loop_led();
-        //loop_serial();
-        //loop_status();
-        loop_print();
-    }
+}
+void loop() {
+    loop_sm();
+    loop_led();
+    //loop_serial();
+    //loop_status();
+    loop_print();
+}
 
 
 

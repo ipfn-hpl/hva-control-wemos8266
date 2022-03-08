@@ -29,7 +29,7 @@ https://seeeddoc.github.io/Wio_Link/
 //#include <aREST.h>
 //#include <aREST_UI.h>
 
-#define ADDRESS 4
+#define ADDRESS 3
 
 enum st_state
 {
